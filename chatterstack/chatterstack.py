@@ -4,8 +4,11 @@ import openai
 openai.api_key = "Your API Key Here"
 
 class Chatterstack:
-    """Initialize the Chatterstack class."""
-    def __init__(self, existing_list=None):
+    
+    def __init__(self, config=None, existing_list=None):
+        """Initialize the Chatist class."""
+        self.config = config if config is not None else {}
+
         if existing_list is None:
             self.list = []
         else:
@@ -33,6 +36,11 @@ class Chatterstack:
             raise IndexError("Index out of range")
         return self.list[index]
     
+    def add(self, role, content):
+        """Add a system message with specified content to the end of the conversation."""
+        new_dict = {"role": role, "content": content}
+        self.list.insert(len(self.list), new_dict)
+    
     def add_system(self, content):
         """Add a system message with specified content to the end of the conversation."""
         self.insert(len(self.list), "system", content)
@@ -46,17 +54,18 @@ class Chatterstack:
     def add_user(self, content):
         """Add a user message with specified content to the end of the conversation."""
         self.insert(len(self.list), "user", content)
-    
-    def send_to_bot(self, model_var="gpt-3.5-turbo", temperature_var=0.8, top_p_var=1, frequency_penalty_var=0, presence_penalty_var=0, max_tokens_var=200):
+
+
+    def send_to_bot(self):
         """Send the conversation to the OpenAI API and append the response to the end of the conversation. Uses 3.5-turbo by default."""
         response = openai.ChatCompletion.create(
-            model=model_var,
-            messages=self.list,
-            temperature=temperature_var,
-            top_p=top_p_var,
-            frequency_penalty=frequency_penalty_var,
-            presence_penalty=presence_penalty_var,
-            max_tokens=max_tokens_var,
+            model = self.config.get("model", "gpt-3.5-turbo"),
+            messages = self.list,
+            temperature = self.config.get("temperature", 0.8),
+            top_p = self.config.get("top_p", 1),
+            frequency_penalty = self.config.get("frequency_penalty", 0),
+            presence_penalty = self.config.get("presence_penalty", 0),
+            max_tokens = self.config.get("max_tokens", 200),
         )
         api_usage = response['usage']
         new_prompt_tokens = int((api_usage['prompt_tokens']))
@@ -174,7 +183,6 @@ class Chatterstack:
         if total_messages == 0:
             return 0
         return self.word_count / total_messages
-
 
 
     def summary(self):
