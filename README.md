@@ -3,7 +3,7 @@ Dead simple and intuitive way to handle the "conversation" variables used by the
 
 # Overview
 
-Here is an entire functional chatbot progrem using chatterstack:
+Here's an fully functional chatbot program using chatterstack:
 
 ```py
 import chatterstack
@@ -35,29 +35,31 @@ ASSISTANT: France has both a President and a Prime Minister, [... bot goes on]
 ```
 
 ### Easily change the defaults
-This library is built to be flexible and intuitive, so there are several ways for you to easily change any of the defaults (for both formatting and function) however you wish. Here's one example:
+This library is built to be intuitive and flexible, so there are several ways for you to easily change any of the defaults (both function and formatting) however you wish. Here's one example:
 
 ```py
 
 while True:
-    # Change the prefix displayed while waiting for user input
+    # Change the user prompt prefix
     convo.user_input(user_prefix="ME: ")
 
-    # Change any of the arguments send to the API
+    # Change any of the API arguments
     convo.send_to_bot(model="gpt-4", temperature=1, max_tokens=40)
 
-    # Change bot display name & remove the empty lines before and after each turn
+    # Change bot display prefix and remove the empty spacer lines
     convo.print_last_message(assistant_prefix="GPT: ", lines_before=0, lines_after=0)
 ```
 Now the conversation looks like this:
 
 ```txt
->>> ME: hey, can you help me with something?
->>> GPT: Of course! I'm here to help. Please let me know what you need assistance with, and I'll do my best to help you.
->>> ME: I need to know if France has a President or a Prime Minister
->>> GPT: France has both a President and a Prime Minister. The President of France is [...bot goes on]
+ME: hey, can you help me with something?
+GPT: Of course! I'm here to help. Please let me know what you need assistance with, and I'll do my best to help you.
+ME: I need to know if France has a President or a Prime Minister
+GPT: France has both a President and a Prime Minister. The President of France is [...bot goes on]
 ```
-There is more info about the current defaults and various methods to change them below
+There is more info about the current defaults and various methods to change them below in the section about sending messages to the API
+
+---
 
 # 🛠️ Setup
 Make sure you have the OpenAI python library installed:
@@ -81,18 +83,18 @@ Get user input from terminal AND append it correctly to the conversation
 ```py
 convo.user_input()
 ```
-The above will default to "USER: ", resulting in this in the terminal, waiting for input:
+The above will default to prompting the user input with "USER: ", looking like this in the terminal:
 ```py
->>> USER:
+USER:
 ```
-But you can change the input prompt easily
+But you can change the input prompt like this:
 ```py
 convo.user_input("Ask the bot: ")
 ```
 ```py
->>> Ask the bot: 
+Ask the bot: 
 ```
-Whatever user input is given will be correctly added to the end of the conversation variable automatically
+Whatever user input is given will be added to the end of the conversation variable automatically
 
 
 ## 📨 Adding Messages
@@ -125,6 +127,7 @@ The chatterstack "send_to_bot" method works basically the same as the default Op
 convo.send_to_bot()
 ```
 That's it!
+
 It will take care of filling in the default valuess for you, as well as appending the response to your conversation.
 
 #### Changing the defaults for the send_to_bot() method:
@@ -139,9 +142,9 @@ presence_penalty=0,
 max_tokens=200
 ```
 
-But you can change any of these in several different ways, depending on what is convienant to you.
+But you can change any of these in several different ways, depending on what is convenient to you.
 
-The most obvious is just to pass them when you make the call. For instance, if you wanted GPT-4 and 800 max tokens:
+The most obvious way is just to pass them as arguments when you make the call. For instance, if you wanted GPT-4 and 800 max tokens:
 
 ```py
 convo.send_to_bot(model="gpt-4", max_tokens=800)
@@ -259,31 +262,8 @@ convo.move_system_to_end(minus=1)
 ```
 *NOTE: Currently, these methods assume that you only have one system message*
 ## 📊 Track and Debug Your Conversation
-ROLES: You can filter messages by role, count the number of messages per role, or get an ordered list of roles:
 
-```py
- # Get the number of messages from a given role
-convo.count_role("assistant") 
-
-# Get a list of all the message content by role
-convo.filter_by_role("user")  
-
-# Get an ordered list of roles in the conversation
-convo.get_roles()  
-```
-
-
-SUMMARIES: Get an overall summary of the stats of your conversation.
-*(This returns a dict, so you can also quite easily use the info in here as variables in other functions)*
-```py
-convo.summary()
-```
-```txt
-SUMMARY:
-{'total_messages': 2, 'system': 0, 'assistant': 1, 'user': 1, 'prompt_tokens': 200, 'assistant_tokens': 78, 'total_tokens': 278}
-```
-
-Or print a formatted version of your conversation (great for debugging)
+Print a formatted version of your conversation (great for debugging)
 ```py
 convo.print_formatted_conversation
 ```
@@ -293,3 +273,16 @@ System: You are a helpful assistant.
 User: hi!
 Assistant: Hi! How can I help you?
 ```
+
+Or, get an overall summary of the stats of your conversation.
+*(This returns a dict, so you can also quite easily use the info in here as variables in other functions)*
+```py
+convo.summary()
+```
+```txt
+SUMMARY:
+{'total_messages': 2, 'system_messages': 0, 'assistant_messages': 1, 'user_messages': 1, 'prompt_tokens': 200, 'assistant_tokens': 78, 'total_tokens': 278}
+```
+
+
+

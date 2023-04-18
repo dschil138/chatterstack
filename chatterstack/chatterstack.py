@@ -1,5 +1,7 @@
+import re
 import openai
 import json
+import datetime
 
 class Chatterstack:
     
@@ -15,6 +17,9 @@ class Chatterstack:
             self.list = []
         else:
             self.list = existing_list
+
+        self.reminders = []
+        self.timestamps = True
 
         self.last_response_prompt_tokens=0
         self.last_response_assistant_tokens=0
@@ -39,24 +44,24 @@ class Chatterstack:
         return self.list[index]
     
     def add(self, role, content):
-        """Add a system message with specified content to the end of the conversation."""
+        if self.timestamps and role != "assistant":
+            timestamp = datetime.datetime.now().strftime('%m/%d %H:%M')
+            content = f"{timestamp} {content}"
         new_dict = {"role": role, "content": content}
         self.list.insert(len(self.list), new_dict)
     
     def add_system(self, content):
         """Add a system message with specified content to the end of the conversation."""
-        self.insert(len(self.list), "system", content)
-
+        self.add("system", content)
 
     def add_assistant(self, content):
         """Add an assistant message with specified content to the end of the conversation."""
-        self.insert(len(self.list), "assistant", content)
-
-
+        self.add("assistant", content)
+        
     def add_user(self, content):
         """Add a user message with specified content to the end of the conversation."""
-        self.insert(len(self.list), "user", content)
-
+        self.add("user", content)
+        
     def user_input(self, user_prefix="USER: "):
         user_text = input(user_prefix)
         self.add_user(user_text)
@@ -68,22 +73,26 @@ class Chatterstack:
             if d["role"] == "system":
                 system_count += 1
                 if system_count > 1:
-                    raise ValueError("More than one 'system' dict found")
+                    print("More than one 'system' dict found")
+                    pass
 
                 system_index = i
 
         if system_index == -1:
-            raise ValueError("No 'system' dict found")
+            print("No 'system' dict found")
+            pass
 
         if index < 0 or index >= len(self.list):
-            raise IndexError("Index out of range")
+            print("Index out of range")
+            pass
 
         system_dict = self.list.pop(system_index)
         self.list.insert(index, system_dict)
 
     def move_system_to_end(self, minus=0):
         if minus < 0:
-            raise ValueError("Minus value cannot be negative")
+            print("Minus value cannot be negative")
+            pass
 
         system_index = -1
         system_count = 0
@@ -91,12 +100,14 @@ class Chatterstack:
             if d["role"] == "system":
                 system_count += 1
                 if system_count > 1:
-                    raise ValueError("More than one 'system' dict found")
+                    print("More than one 'system' dict found")
+                    pass
 
                 system_index = i
 
         if system_index == -1:
-            raise ValueError("No 'system' dict found")
+            print("No 'system' dict found")
+            pass
 
         system_dict = self.list.pop(system_index)
         target_index = len(self.list) - minus
@@ -104,7 +115,6 @@ class Chatterstack:
 
     def send_to_bot(self, **kwargs):
         """Send the conversation to the OpenAI API and append the response to the end of the conversation. Uses 3.5-turbo by default."""
-
         model = kwargs.get("model", self.config.get("model", "gpt-3.5-turbo"))
         temperature = kwargs.get("temperature", self.config.get("temperature", 0.8))
         top_p = kwargs.get("top_p", self.config.get("top_p", 1))
@@ -121,6 +131,7 @@ class Chatterstack:
             presence_penalty=presence_penalty,
             max_tokens=max_tokens,
         )
+        print(response.choices[0].message.content.strip())
         api_usage = response['usage']
         new_prompt_tokens = int((api_usage['prompt_tokens']))
         new_assistant_tokens = int((api_usage['completion_tokens']))
@@ -137,8 +148,6 @@ class Chatterstack:
         self.add_assistant(response.choices[0].message.content.strip())
         return self
     
-
-
     def to_json(self):
         """Return the conversation list as a JSON-formatted string."""
         return json.dumps(self.list)
@@ -147,44 +156,29 @@ class Chatterstack:
     def remove_from_end(self, count):
         """Remove N messages (count) from the end of the list."""
         if count < 0:
-            raise ValueError("Count must be a non-negative integer")
+            print("Count must be a non-negative integer")
+            pass
         self.list = self.list[:-count] if count < len(self.list) else []
 
 
     def remove_from_start(self, count):
         """Remove N messages (count) from the start of the list."""
         if count < 0:
-            raise ValueError("Count must be a non-negative integer")
+            print("Count must be a non-negative integer")
+            pass
         self.list = self.list[count:] if count < len(self.list) else []
 
 
     def insert(self, index, role, content):
         """Insert a message at the specified index with the given role and content."""
         if role not in ["system", "assistant", "user"]:
-            raise ValueError("Invalid role")
+            print("Invalid role")
+            pass
         if index < 0 or index > len(self.list):
-            raise IndexError("Index out of range")
+            print("Index out of range")
+            pass
         self.list.insert(index, {"role": role, "content": content})
 
-
-    def get_roles(self):
-        """Return an ordered list of roles in the conversation."""
-        return [d["role"] for d in self.list]
-
-
-    def filter_by_role(self, role):
-        """Return a list of messages from the specified role."""
-        if role not in ["system", "assistant", "user"]:
-            raise ValueError("Invalid role")
-        return [d for d in self.list if d["role"] == role]
-
-
-    def count_role(self, role):
-        """Return the number of messages with the specified role."""
-        if role not in ["system", "assistant", "user"]:
-            raise ValueError("Invalid role")
-        return sum(1 for d in self.list if d["role"] == role)
-    
 
     def move_system_message(self, index, from_end=False):
         """Move the system message to the specified index. Only works if conversation contains one system message."""
@@ -194,21 +188,42 @@ class Chatterstack:
             if d["role"] == "system":
                 system_count += 1
                 if system_count > 1:
-                    raise ValueError("More than one 'system' dict found")
+                    print("More than one 'system' dict found")
+                    pass
 
                 system_index = i
 
         if system_index == -1:
-            raise ValueError("No 'system' dict found")
+            print("No 'system' dict found")
+            pass
 
         if from_end:
             index = len(self.list) - 1 - index
 
         if index < 0 or index >= len(self.list):
-            raise IndexError("Index out of range")
+            print("Index out of range")
+            pass
 
         system_dict = self.list.pop(system_index)
         self.list.insert(index, system_dict)
+
+
+    def move_message_containing(self, substring, index):
+        '''Move the message containing the substring to the specified index. Only works if conversation contains one message containing the substring.'''
+        if index < 0 or index >= len(self.list):
+            print("Index out of range")
+            pass
+
+        matching_indices = [i for i, d in enumerate(self.list) if substring in d["content"]]
+
+        if len(matching_indices) == 0:
+            print("Warning: No message containing the substring was found")
+        elif len(matching_indices) > 1:
+            print("Warning: Multiple messages containing the substring were found")
+        else:
+            message_index = matching_indices[0]
+            message_dict = self.list.pop(message_index)
+            self.list.insert(index, message_dict)
 
 
     @property
@@ -249,14 +264,13 @@ class Chatterstack:
             print(f'{d["role"].capitalize()}: {d["content"]}')
 
 
-
     def summary(self):
         """Return a summary of the conversation."""
         summary_dict = {
             "total_messages": len(self.list),
-            "system": self.count_role("system"),
-            "assistant": self.count_role("assistant"),
-            "user": self.count_role("user"),
+            "system_messages": self.count_role("system"),
+            "assistant_messages": self.count_role("assistant"),
+            "user_messages": self.count_role("user"),
             "prompt_tokens": self.total_prompt_tokens,
             "assistant_tokens": self.total_assistant_tokens,
             "total_tokens": self.total_tokens,
