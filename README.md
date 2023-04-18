@@ -1,7 +1,65 @@
 # Chatterstack 
 Dead simple and intuitive way to handle the "conversation" variables used by the ChatGPT API
 
-## Setup
+# Overview
+
+Here is an entire functional chatbot progrem using chatterstack:
+
+```py
+import chatterstack
+import os
+
+os.environ['OPENAI_API_KEY'] = 'YOUR_API_KEY_HERE'
+
+convo = chatterstack.Chatterstack()
+
+while True:
+    convo.user_input()
+    
+    convo.send_to_bot()
+
+    convo.print_last_message()
+```
+That's the whole thing!
+
+Here is what the resulting conversation looks like:
+
+```txt
+USER: hey, can you help me with something?
+
+ASSISTANT: Sure! What would you like help with?
+
+USER: I need to know if France has a President or a Prime Minister
+
+ASSISTANT: France has both a President and a Prime Minister, [... bot goes on]
+```
+
+### Easily change the defaults
+This library is built to be flexible and intuitive, so there are several ways for you to easily change any of the defaults (for both formatting and function) however you wish. Here's one example:
+
+```py
+
+while True:
+    # Change the prefix displayed while waiting for user input
+    convo.user_input(user_prefix="ME: ")
+
+    # Change any of the arguments send to the API
+    convo.send_to_bot(model="gpt-4", temperature=1, max_tokens=40)
+
+    # Change bot display name & remove the empty lines before and after each turn
+    convo.print_last_message(assistant_prefix="GPT: ", lines_before=0, lines_after=0)
+```
+Now the conversation looks like this:
+
+```txt
+>>> ME: hey, can you help me with something?
+>>> GPT: Of course! I'm here to help. Please let me know what you need assistance with, and I'll do my best to help you.
+>>> ME: I need to know if France has a President or a Prime Minister
+>>> GPT: France has both a President and a Prime Minister. The President of France is [...bot goes on]
+```
+There is more info about the current defaults and various methods to change them below
+
+# 🛠️ Setup
 Make sure you have the OpenAI python library installed:
 
 
@@ -11,88 +69,134 @@ pip install openai
 
 import & initialization:
 ```py
-import openai
 from chatterstack import Chatterstack
 
-cs = Chatterstack()
+convo = Chatterstack()
 ```
----
-## Usage
-### Adding Messages
-Add messages to the end of conversation by giving the role and the content:
+
+# 👨‍💻 Usage
+## 📨 Getting Input 
+Get user input from terminal AND append it correctly to the conversation
 
 ```py
-# general method
-cs.add("user", "I'm the content of the user message")
+convo.user_input()
+```
+The above will default to "USER: ", resulting in this in the terminal, waiting for input:
+```py
+>>> USER:
+```
+But you can change the input prompt easily
+```py
+convo.user_input("Ask the bot: ")
+```
+```py
+>>> Ask the bot: 
+```
+Whatever user input is given will be correctly added to the end of the conversation variable automatically
 
-# or use the specific methods for each role
-cs.add_system("This is a system message.")
-cs.add_user("This is a user message.")
-cs.add_assistant("This is an assistant message.")
+
+## 📨 Adding Messages
+If you want to collect your user input separately, and perhaps alter or format it somehow before adding it to the conversation variable, there are several ways to take just a string and add it to the conversation as a correctly formatted dict:
+```py
+# The .add() method. Pass it the role, then the content
+convo.add("user", "I'm the content of the user message")
+
+# or use the role-specific methods & just pass the content
+convo.add_system("This is a system message.")
+convo.add_user("This is a user message.")
+convo.add_assistant("This is an assistant message.")
 ```
 
-Or, if you'd like to add a message at a certain index:
+All of the methods above append the new message to the end of the current conversation. If you want to add a message at a certain index, you can use .insert()
 
 ```py
 # Here's the format
-cs.instert(index, role, content)
+convo.insert(index, role, content)
 
 # And an example
-cs.insert(2, "system", "Remember to not apologize to the user so much")
+convo.insert(2, "system", "Remember to not apologize to the user so much")
 ```
 
-### Sending the Conversation to ChatGPT
-The "send_to_bot" method works basically the same as the default OpenAI API call method, but it's simpler and automatically appends the response to your conversation variable for you. You can call it like this:
+## 💌 Sending the Conversation to the API
+#### (and some extra notes on setting your defaults)
+The chatterstack "send_to_bot" method works basically the same as the default OpenAI API call, but it's simpler and automatically appends the response to your conversation variable for you. You can call it like this:
 
 ```py
-cs.send_to_bot()
+convo.send_to_bot()
 ```
-Literally, that's it.
+That's it!
+It will take care of filling in the default valuess for you, as well as appending the response to your conversation.
 
-it will send it with these defaults:
+#### Changing the defaults for the send_to_bot() method:
+By default, it will use the values for the API call:
 
 ```py
-    model_var="gpt-3.5-turbo",
-    temperature_var=0.8,
-    top_p_var=1,
-    frequency_penalty_var=0,
-    presence_penalty_var=0,
-    max_tokens_var=200
+model="gpt-3.5-turbo",
+temperature=0.8,
+top_p=1,
+frequency_penalty=0,
+presence_penalty=0,
+max_tokens=200
 ```
 
-any of which you can change when you call it, for instance if you wanted GPT-4, with low temp and 800 max tokens:
+But you can change any of these in several different ways, depending on what is convienant to you.
+
+The most obvious is just to pass them when you make the call. For instance, if you wanted GPT-4 and 800 max tokens:
 
 ```py
-cs.send_to_bot(
-    model="gpt-4",
-    temperature=0.2,
-    max_tokens=800
-    )
+convo.send_to_bot(model="gpt-4", max_tokens=800)
+```
+This approach is especially helpful when you want to make just one call with some different values.
+
+But if you know you want different values for the defaults, you can define them in caps at the top of your file, and initialize chatterstack using `globals()` like this:
+
+```py
+MODEL = "gpt-4"
+TEMPERATURE = 0.6
+FREQUENCY_PENALTY = 1.25
+MAX_TOKENS = 500
+
+# initialize with 'globals()'
+convo = chatterstack.Chatterstack(user_defaults=globals())
+
+# and now you can just call it like this again
+convo.send_to_bot()
 ```
 
 
-If you'd rather use the regular OpenAI API method, you can do that by simply passing the .list attribute of your Chatterstack object:
+Finally, if you'd rather use the standard OpenAI API method, you can do that by simply passing the .list attribute of your Chatterstack object:
 
 ```py
 response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=cs.list, # right here
-        temperature=0.9,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0,
-        max_tokens=100,
-    )
+    model="gpt-3.5-turbo",
+    messages=convo.list, # right here
+    temperature=0.9,
+    top_p=1,
+    frequency_penalty=0,
+    presence_penalty=0,
+    max_tokens=100,
+)
 ```
 
-### Accessing Messages
-To access messages in the conversation:
+
+## 📂 Accessing and Printing Messages
+Super Simple:
 
 ```py
-cs.last_message  # Is the content of the last message
 
-cs.print_last_message()  # Prints the content of the last message
+convo.print_last_message()  # Prints the content value of the last message
+
+# or, if I wanted to do formatting on the string...
+convo.last_message  # <-- This represents/is the content of the last message
+
+#So you can do stuff like this:
+message_in_caps = convo.last_message.upper()
+
+# print the last message in all upper case
+print(message_in_caps) 
+
 ```
+<!-- ## 🦾 Putting it together
 
 So now we are starting to see how easy this is getting right? Look at this workflow:
 
@@ -101,72 +205,91 @@ So now we are starting to see how easy this is getting right? Look at this workf
 user_input = input()
 
 # append it to conversation
-cs.add_user(user_input)
+convo.add_user(user_input)
 
-# Send conversation to bot & append its response to conversation
-cs.send_to_bot()
+# Get response from bot AND append its response to conversation
+convo.send_to_bot()
 
 # print the bots response
-cs.print_last_message()
+convo.print_last_message()
 
-```
+``` -->
 
-### What about tokens?
+## 🪙 What About Tokens?
 
 oh, yeah. We're keeping track of tokens.
 
 ```py
-# any time you get a new response from the bot, you
-# can check the stats on that call
-cs.last_response_prompt_tokens
-cs.last_response_assistant_tokens
-cs.last_response_tokens # this is the total
+# See the tokens used on the last API call
+convo.last_response_prompt_tokens
+convo.last_response_assistant_tokens
+convo.last_response_tokens # <-- this is the total from the last call
 
 
 # At any time, check the totals for the whole conversation so far
-cs.total_prompt_tokens
-cs.total_assistant_tokens
-cs.total_tokens
+convo.total_prompt_tokens
+convo.total_assistant_tokens
+convo.total_tokens
 ```
 
 
-### Message Manipulation
+## ⤵️ List Manipulation
 Various methods are available to manipulate the conversation, here are some:
 
 ```py
 # Insert a message at the specified index with the given role and content
-cs.insert(index, role, content) 
+convo.insert(index, role, content) 
 
 # Remove N messages from the end of the list
-cs.remove_from_end(count) 
+convo.remove_from_end(count) 
 
 # Remove N messages from the start of the list
-cs.remove_from_start(count) 
-
+convo.remove_from_start(count) 
 ```
 
-### Analytics on the conversation variable 
-You can filter messages by role, count the number of messages per role, or get an ordered list of roles:
+But probably the most important, in my opinion, are the methods simplifying your ability to move the system message.
+
+Since system messages are often used for instructions, many times it can be helpful to have the instructions appear more "recently" in the conversation, as a strong reminder of how the bot should behave:
+```py
+# move your system message to be the most recent message in convo
+convo.move_system_to_end()
+
+# or second to last, etc
+convo.move_system_to_end(minus=1)
+```
+*NOTE: Currently, these methods assume that you only have one system message*
+## 📊 Track and Debug Your Conversation
+ROLES: You can filter messages by role, count the number of messages per role, or get an ordered list of roles:
 
 ```py
-# Get a list of messages by role
-cs.filter_by_role("user")  
-
  # Get the number of messages from a given role
-cs.count_role("assistant") 
+convo.count_role("assistant") 
+
+# Get a list of all the message content by role
+convo.filter_by_role("user")  
 
 # Get an ordered list of roles in the conversation
-cs.get_roles()  
+convo.get_roles()  
 ```
 
 
-Or just get an overall summary of the conversation
+SUMMARIES: Get an overall summary of the stats of your conversation.
+*(This returns a dict, so you can also quite easily use the info in here as variables in other functions)*
 ```py
-cs.summary()
-
->>> SUMMARY:
->>> {'total_messages': 2, 'system': 0, 'assistant': 1, 'user': 1, 'prompt_tokens': 200, 'assistant_tokens': 78, 'total_tokens': 278}
+convo.summary()
+```
+```txt
+SUMMARY:
+{'total_messages': 2, 'system': 0, 'assistant': 1, 'user': 1, 'prompt_tokens': 200, 'assistant_tokens': 78, 'total_tokens': 278}
 ```
 
+Or print a formatted version of your conversation (great for debugging)
+```py
+convo.print_formatted_conversation
+```
 
-
+```txt
+System: You are a helpful assistant.
+User: hi!
+Assistant: Hi! How can I help you?
+```

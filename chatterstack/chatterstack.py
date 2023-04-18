@@ -1,13 +1,15 @@
-import json
 import openai
-
-openai.api_key = "Your API Key Here"
+import json
 
 class Chatterstack:
     
-    def __init__(self, config=None, existing_list=None):
-        """Initialize the Chatist class."""
-        self.config = config if config is not None else {}
+    def __init__(self, user_defaults=None, existing_list=None):
+        """Initialize the Chatist class with optional user default values & existing list, if any."""
+        self.config = {
+            key: value
+            for key, value in (user_defaults or {}).items()
+            if key in {"MODEL", "TEMPERATURE", "TOP_P", "FREQUENCY_PENALTY", "PRESENCE_PENALTY", "MAX_TOKENS"}
+        }
 
         if existing_list is None:
             self.list = []
@@ -55,17 +57,69 @@ class Chatterstack:
         """Add a user message with specified content to the end of the conversation."""
         self.insert(len(self.list), "user", content)
 
+    def user_input(self, user_prefix="USER: "):
+        user_text = input(user_prefix)
+        self.add_user(user_text)
 
-    def send_to_bot(self):
+    def move_system_to(self, index):
+        system_index = -1
+        system_count = 0
+        for i, d in enumerate(self.list):
+            if d["role"] == "system":
+                system_count += 1
+                if system_count > 1:
+                    raise ValueError("More than one 'system' dict found")
+
+                system_index = i
+
+        if system_index == -1:
+            raise ValueError("No 'system' dict found")
+
+        if index < 0 or index >= len(self.list):
+            raise IndexError("Index out of range")
+
+        system_dict = self.list.pop(system_index)
+        self.list.insert(index, system_dict)
+
+    def move_system_to_end(self, minus=0):
+        if minus < 0:
+            raise ValueError("Minus value cannot be negative")
+
+        system_index = -1
+        system_count = 0
+        for i, d in enumerate(self.list):
+            if d["role"] == "system":
+                system_count += 1
+                if system_count > 1:
+                    raise ValueError("More than one 'system' dict found")
+
+                system_index = i
+
+        if system_index == -1:
+            raise ValueError("No 'system' dict found")
+
+        system_dict = self.list.pop(system_index)
+        target_index = len(self.list) - minus
+        self.list.insert(target_index, system_dict)
+
+    def send_to_bot(self, **kwargs):
         """Send the conversation to the OpenAI API and append the response to the end of the conversation. Uses 3.5-turbo by default."""
+
+        model = kwargs.get("model", self.config.get("model", "gpt-3.5-turbo"))
+        temperature = kwargs.get("temperature", self.config.get("temperature", 0.8))
+        top_p = kwargs.get("top_p", self.config.get("top_p", 1))
+        frequency_penalty = kwargs.get("frequency_penalty", self.config.get("frequency_penalty", 0))
+        presence_penalty = kwargs.get("presence_penalty", self.config.get("presence_penalty", 0))
+        max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", 200))
+
         response = openai.ChatCompletion.create(
-            model = self.config.get("model", "gpt-3.5-turbo"),
-            messages = self.list,
-            temperature = self.config.get("temperature", 0.8),
-            top_p = self.config.get("top_p", 1),
-            frequency_penalty = self.config.get("frequency_penalty", 0),
-            presence_penalty = self.config.get("presence_penalty", 0),
-            max_tokens = self.config.get("max_tokens", 200),
+            model=model,
+            messages=self.list,
+            temperature=temperature,
+            top_p=top_p,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            max_tokens=max_tokens,
         )
         api_usage = response['usage']
         new_prompt_tokens = int((api_usage['prompt_tokens']))
@@ -162,8 +216,14 @@ class Chatterstack:
             return self.list[-1]["content"]
     
 
-    def print_last_message(self):
-            print(self.list[-1]["content"])
+    def print_last_message(self, assistant_prefix="ASSISTANT: ", lines_before=1, lines_after=1):
+        """Print the last message in the conversation."""
+        for i in range(lines_before):
+            print()
+        content = self.list[-1]["content"]
+        print(f"{assistant_prefix}{content}")
+        for i in range(lines_after):
+            print()
 
 
     @property
@@ -183,6 +243,11 @@ class Chatterstack:
         if total_messages == 0:
             return 0
         return self.word_count / total_messages
+    
+    def print_formatted_conversation(self):
+        for d in self.list:
+            print(f'{d["role"].capitalize()}: {d["content"]}')
+
 
 
     def summary(self):
