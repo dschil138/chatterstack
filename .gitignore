@@ -1,4 +1,8 @@
 __pycache__/
+chatterstack/__pycache__/
+dist/
+build/
+chatterstanck.egg-info/
 .vscode/
 .DS_Store
 ignored/

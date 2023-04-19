@@ -10,7 +10,7 @@ class Chatterstack:
         self.config = {
             key: value
             for key, value in (user_defaults or {}).items()
-            if key in {"MODEL", "TEMPERATURE", "TOP_P", "FREQUENCY_PENALTY", "PRESENCE_PENALTY", "MAX_TOKENS"}
+            if key in {"MODEL", "TEMPERATURE", "TOP_P", "FREQUENCY_PENALTY", "PRESENCE_PENALTY", "MAX_TOKENS", "STOP", "LOG_PROBS", "STREAM", "LOGIT_BIAS"}
         }
 
         if existing_list is None:
@@ -121,6 +121,10 @@ class Chatterstack:
         frequency_penalty = kwargs.get("frequency_penalty", self.config.get("frequency_penalty", 0))
         presence_penalty = kwargs.get("presence_penalty", self.config.get("presence_penalty", 0))
         max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", 200))
+        stop = kwargs.get("stop", self.config.get("stop", 200))
+        logprobs = kwargs.get("logprobs", self.config.get("logprobs", 200))
+        stream = kwargs.get("stream", self.config.get("stream", 200))
+        logit_bias = kwargs.get("logit_bias", self.config.get("logit_bias", 200))
 
         response = openai.ChatCompletion.create(
             model=model,
@@ -130,6 +134,10 @@ class Chatterstack:
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
             max_tokens=max_tokens,
+            stop=stop,
+            logprobs=logprobs,
+            stream=stream,
+            logit_bias=logit_bias,
         )
         print(response.choices[0].message.content.strip())
         api_usage = response['usage']
