@@ -26,7 +26,7 @@ Since this conversation variable is...
 - and each dictionary alway contains just the same two keys
 - and the first key can only ever be one of three values
 
-...this means we can actually abstract away a lot of this mess in a way tha is much more intuitive to use - while also keeping basically all of the inherent flexibility! That is a rare thing to be able to do!
+...this means we can actually abstract away a lot of this mess in a way that is much more intuitive to use - while also keeping basically all of the inherent flexibility! That is a rare thing to be able to do.
 
 
 ### here, look:
@@ -77,16 +77,24 @@ while True:
 
     # change the prefix and line spacing
     convo.print_last_message(prefix="GPT: ", lines_before=0, lines_after=2)
+
+    # and let's have it print the total tokens after each turn
+    print(convo.tokens_total_all+"\n\n")
+
+    
 ```
-Now your conversation is with GPT-4, and conversation looks like this:
+Now your conversation is with GPT-4, and conversation looks like this, with token counts:
 
 ```txt
 ME: hey, can you help me with something?
 GPT: Of course! I'm here to help. Please let me know what you need assistance with, and I'll do my best to help you.
 
+28
 
 ME: I need to know if France has a President or a Prime Minister
 GPT: France has both a President and a Prime Minister. The President of France is [...bot goes on]
+
+87
 ```
 There is more info about the current defaults and various methods to change them below in the section about sending messages to the API
 

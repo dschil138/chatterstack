@@ -2,6 +2,60 @@ import re
 import openai
 import json
 import datetime
+import os
+
+class ICommand:
+    def execute(self):
+        pass
+
+class QuitCommand(ICommand):
+    def execute(self):
+        print("Quitting the program.")
+        exit(0)
+
+
+class SaveConversationCommand(ICommand):
+    def __init__(self, chatterstack, file_name="conversation.txt"):
+        self.chatterstack = chatterstack
+        self.file_name = file_name
+
+    def execute(self):
+        print(f"Saving conversation to {self.file_name}")
+        conversation_json = self.chatterstack.to_json()
+
+        with open(self.file_name, "w") as file:
+            file.write(conversation_json)
+
+        print(f"Conversation saved to {self.file_name}")
+
+class CallMethodCommand(ICommand):
+    def __init__(self, chatterstack, method_name):
+        self.chatterstack = chatterstack
+        self.method_name = method_name
+
+    def execute(self):
+        method = getattr(self.chatterstack, self.method_name, None)
+        if method and callable(method):
+            method()
+        else:
+            print(f"Error: No method named '{self.method_name}' found in Chatterstack class.")
+
+
+
+class CommandHandler:
+    def __init__(self):
+        self.command_map = {}
+
+    def register_command(self, command_name, command_instance):
+        self.command_map[command_name] = command_instance
+
+    # def execute_command(self, command_name):
+    #     if command_name in self.command_map:
+    #         self.command_map[command_name].execute()
+
+    def execute_command(self, command_name, *args, **kwargs):
+        if command_name in self.command_map:
+            self.command_map[command_name].execute(*args, **kwargs)
 
 class Chatterstack:
     
@@ -17,6 +71,15 @@ class Chatterstack:
             self.list = []
         else:
             self.list = existing_list
+
+
+        self.command_manager = CommandHandler()
+        self.command_manager.register_command('quit', QuitCommand())
+        self.command_manager.register_command('save', SaveConversationCommand(self))
+        # self.command_manager.register_command('call_method', CallMethodCommand(self))
+
+
+
 
         self.first_response_time = None
         self.last_response_time = None
@@ -73,8 +136,8 @@ class Chatterstack:
         """Add a user message with specified content to the end of the conversation."""
         user_text = input(prefix)
         if parse:
-            command, message = self.parse_message_for_commands(user_text)
-        self.add_user(message)
+            command, user_text = self.parse_message_for_commands(user_text)
+        self.add_user(user_text)
         return command
 
     def move_system_to(self, index):
@@ -171,6 +234,7 @@ class Chatterstack:
 
         return self
     
+
     def to_json(self):
         """Return the conversation list as a JSON-formatted string."""
         return json.dumps(self.list)
@@ -259,6 +323,8 @@ class Chatterstack:
             message_dict = self.list.pop(message_index)
             self.list.insert(index, message_dict)
 
+
+
     def parse_message_for_commands(self, message):
         pattern = re.escape(self.open_command) + r'([^' + re.escape(self.close_command) + r']*)' + re.escape(self.close_command)
         match = re.search(pattern, message)
@@ -266,9 +332,18 @@ class Chatterstack:
         if match:
             command = match.group(1)
             remaining_message = re.sub(pattern, '', message, count=1).strip()
+
+            # Check if the command exists in the command_map, otherwise try to call it as a method
+            if command in self.command_manager.command_map:
+                self.command_manager.execute_command(command)
+            else:
+                call_method_command = CallMethodCommand(self, command)
+                call_method_command.execute()
+
             return command, remaining_message
         else:
             return None, message
+        
 
 
     @property
