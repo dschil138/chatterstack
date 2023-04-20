@@ -10,7 +10,7 @@ class Chatterstack:
         self.config = {
             key: value
             for key, value in (user_defaults or {}).items()
-            if key in {"MODEL", "TEMPERATURE", "TOP_P", "FREQUENCY_PENALTY", "PRESENCE_PENALTY", "MAX_TOKENS", "STOP", "LOG_PROBS", "STREAM", "LOGIT_BIAS"}
+            if key in {"MODEL", "TEMPERATURE", "TOP_P", "FREQUENCY_PENALTY", "PRESENCE_PENALTY", "MAX_TOKENS", "STOP", "STREAM", "LOGIT_BIAS"}
         }
 
         if existing_list is None:
@@ -18,16 +18,23 @@ class Chatterstack:
         else:
             self.list = existing_list
 
+        self.first_response_time = None
+        self.last_response_time = None
+        self.duration = None
         self.reminders = []
         self.timestamps = True
 
-        self.last_response_prompt_tokens=0
-        self.last_response_assistant_tokens=0
-        self.last_response_tokens=0
+        self.open_command = "{"
+        self.close_command = "}"
+        
+        self.last_call_prompt_tokens=0
+        self.last_call_full_context_prompt_tokens=0
+        self.last_call_assistant_tokens=0
+        self.last_call_tokens_all=0
 
-        self.total_prompt_tokens=0
-        self.total_assistant_tokens=0
-        self.total_tokens=0
+        self.prompt_tokens_total=0
+        self.assistant_tokens_total=0
+        self.tokens_total_all=0
     
     def __str__(self):
         """Return a string representation of the conversation."""
@@ -62,9 +69,13 @@ class Chatterstack:
         """Add a user message with specified content to the end of the conversation."""
         self.add("user", content)
         
-    def user_input(self, user_prefix="USER: "):
-        user_text = input(user_prefix)
-        self.add_user(user_text)
+    def user_input(self, prefix="USER: ", parse=False):
+        """Add a user message with specified content to the end of the conversation."""
+        user_text = input(prefix)
+        if parse:
+            command, message = self.parse_message_for_commands(user_text)
+        self.add_user(message)
+        return command
 
     def move_system_to(self, index):
         system_index = -1
@@ -74,17 +85,17 @@ class Chatterstack:
                 system_count += 1
                 if system_count > 1:
                     print("More than one 'system' dict found")
-                    pass
+                    return
 
                 system_index = i
 
         if system_index == -1:
             print("No 'system' dict found")
-            pass
+            return
 
         if index < 0 or index >= len(self.list):
             print("Index out of range")
-            pass
+            return
 
         system_dict = self.list.pop(system_index)
         self.list.insert(index, system_dict)
@@ -92,7 +103,7 @@ class Chatterstack:
     def move_system_to_end(self, minus=0):
         if minus < 0:
             print("Minus value cannot be negative")
-            pass
+            return
 
         system_index = -1
         system_count = 0
@@ -101,13 +112,13 @@ class Chatterstack:
                 system_count += 1
                 if system_count > 1:
                     print("More than one 'system' dict found")
-                    pass
+                    return
 
                 system_index = i
 
         if system_index == -1:
             print("No 'system' dict found")
-            pass
+            return
 
         system_dict = self.list.pop(system_index)
         target_index = len(self.list) - minus
@@ -121,10 +132,9 @@ class Chatterstack:
         frequency_penalty = kwargs.get("frequency_penalty", self.config.get("frequency_penalty", 0))
         presence_penalty = kwargs.get("presence_penalty", self.config.get("presence_penalty", 0))
         max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", 200))
-        stop = kwargs.get("stop", self.config.get("stop", 200))
-        logprobs = kwargs.get("logprobs", self.config.get("logprobs", 200))
-        stream = kwargs.get("stream", self.config.get("stream", 200))
-        logit_bias = kwargs.get("logit_bias", self.config.get("logit_bias", 200))
+        stop = kwargs.get("stop", self.config.get("stop", None))
+        stream = kwargs.get("stream", self.config.get("stream", False))
+        logit_bias = kwargs.get("logit_bias", self.config.get("logit_bias", {}))
 
         response = openai.ChatCompletion.create(
             model=model,
@@ -135,37 +145,53 @@ class Chatterstack:
             presence_penalty=presence_penalty,
             max_tokens=max_tokens,
             stop=stop,
-            logprobs=logprobs,
             stream=stream,
             logit_bias=logit_bias,
         )
-        print(response.choices[0].message.content.strip())
-        api_usage = response['usage']
-        new_prompt_tokens = int((api_usage['prompt_tokens']))
-        new_assistant_tokens = int((api_usage['completion_tokens']))
-        new_tokens = int((api_usage['total_tokens']))
-
-        self.last_response_prompt_tokens = new_prompt_tokens
-        self.last_response_assistant_tokens = new_assistant_tokens
-        self.last_response_tokens = new_prompt_tokens
-
-        self.total_prompt_tokens += new_prompt_tokens
-        self.total_assistant_tokens += new_assistant_tokens
-        self.total_tokens += new_tokens
-
         self.add_assistant(response.choices[0].message.content.strip())
+
+        self.last_response_time = response.created
+
+        if self.first_response_time is None:
+            self.first_response_time = response.created
+            print("First response time: ", self.first_response_time)
+
+        # OK,update all the token counts
+        api_usage = response['usage']
+        self.last_call_full_context_prompt_tokens = int((api_usage['prompt_tokens']))
+        self.last_call_assistant_tokens = int((api_usage['completion_tokens']))
+        self.last_call_tokens_all = int((api_usage['total_tokens']))
+
+        self.last_call_prompt_tokens = self.last_call_full_context_prompt_tokens - self.tokens_total_all
+
+        self.prompt_tokens_total += self.last_call_full_context_prompt_tokens
+        self.assistant_tokens_total += self.last_call_assistant_tokens
+        self.tokens_total_all += self.last_call_tokens_all
+        # phew
+
         return self
     
     def to_json(self):
         """Return the conversation list as a JSON-formatted string."""
         return json.dumps(self.list)
+    
+    def from_json(self, json_string, clear_all=False):
+        """Load a conversation from a JSON-formatted string.
+        WARNING: This will overwrite the current conversation.
+        This may also lead to a mismatch between your conversation and some instance attributes.
+        You can also clear all attributes by setting clear_all=True.
+        Think about what you want when using this method."""
+        if clear_all:
+            for attr in self.__dict__:
+                self.__dict__[attr] = None
+        self.list = json.loads(json_string)
 
 
     def remove_from_end(self, count):
         """Remove N messages (count) from the end of the list."""
         if count < 0:
             print("Count must be a non-negative integer")
-            pass
+            return
         self.list = self.list[:-count] if count < len(self.list) else []
 
 
@@ -173,7 +199,7 @@ class Chatterstack:
         """Remove N messages (count) from the start of the list."""
         if count < 0:
             print("Count must be a non-negative integer")
-            pass
+            return
         self.list = self.list[count:] if count < len(self.list) else []
 
 
@@ -181,10 +207,10 @@ class Chatterstack:
         """Insert a message at the specified index with the given role and content."""
         if role not in ["system", "assistant", "user"]:
             print("Invalid role")
-            pass
+            return
         if index < 0 or index > len(self.list):
             print("Index out of range")
-            pass
+            return
         self.list.insert(index, {"role": role, "content": content})
 
 
@@ -197,20 +223,20 @@ class Chatterstack:
                 system_count += 1
                 if system_count > 1:
                     print("More than one 'system' dict found")
-                    pass
+                    return
 
                 system_index = i
 
         if system_index == -1:
             print("No 'system' dict found")
-            pass
+            return
 
         if from_end:
             index = len(self.list) - 1 - index
 
         if index < 0 or index >= len(self.list):
             print("Index out of range")
-            pass
+            return
 
         system_dict = self.list.pop(system_index)
         self.list.insert(index, system_dict)
@@ -220,7 +246,7 @@ class Chatterstack:
         '''Move the message containing the substring to the specified index. Only works if conversation contains one message containing the substring.'''
         if index < 0 or index >= len(self.list):
             print("Index out of range")
-            pass
+            return
 
         matching_indices = [i for i, d in enumerate(self.list) if substring in d["content"]]
 
@@ -233,39 +259,68 @@ class Chatterstack:
             message_dict = self.list.pop(message_index)
             self.list.insert(index, message_dict)
 
+    def parse_message_for_commands(self, message):
+        pattern = re.escape(self.open_command) + r'([^' + re.escape(self.close_command) + r']*)' + re.escape(self.close_command)
+        match = re.search(pattern, message)
+
+        if match:
+            command = match.group(1)
+            remaining_message = re.sub(pattern, '', message, count=1).strip()
+            return command, remaining_message
+        else:
+            return None, message
+
 
     @property
     def last_message(self):
             return self.list[-1]["content"]
     
-
-    def print_last_message(self, assistant_prefix="ASSISTANT: ", lines_before=1, lines_after=1):
+    @property
+    def last_system_message(self):
+        for message in reversed(self.list):
+            if message["role"] == "system":
+                return message["content"]
+        return None  
+    
+    @property
+    def last_user_message(self):
+        for message in reversed(self.list):
+            if message["role"] == "user":
+                return message["content"]
+        return None  
+    
+    @property
+    def last_assistant_message(self):
+        for message in reversed(self.list):
+            if message["role"] == "assistant":
+                return message["content"]
+        return None  
+    
+    
+    def print_last_message(self, prefix="ASSISTANT: ", lines_before=1, lines_after=1):
         """Print the last message in the conversation."""
         for i in range(lines_before):
             print()
         content = self.list[-1]["content"]
-        print(f"{assistant_prefix}{content}")
+        print(f"{prefix}{content}")
         for i in range(lines_after):
             print()
+            
 
+    def get_conversation_duration(self):
+        if self.first_response_time is None:
+            print("No initial timestamp yet")
+            return
 
-    @property
-    def word_count(self):
-        return sum(len(d["content"].split()) for d in self.list)
+        most_recent_message_time = int(datetime.datetime.now().timestamp())
+        duration_seconds = most_recent_message_time - self.first_response_time
+        
+        hours, remainder = divmod(duration_seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+
+        self.duration = f"{hours:02d}:{minutes:02d}"
+        return self.duration
     
-    @property
-    def role_word_count(self):
-        role_count = {"system": 0, "assistant": 0, "user": 0}
-        for d in self.list:
-            role_count[d["role"]] += len(d["content"].split())
-        return role_count
-    
-    @property
-    def average_words_per_message(self):
-        total_messages = len(self.list)
-        if total_messages == 0:
-            return 0
-        return self.word_count / total_messages
     
     def print_formatted_conversation(self):
         for d in self.list:
@@ -279,9 +334,9 @@ class Chatterstack:
             "system_messages": self.count_role("system"),
             "assistant_messages": self.count_role("assistant"),
             "user_messages": self.count_role("user"),
-            "prompt_tokens": self.total_prompt_tokens,
-            "assistant_tokens": self.total_assistant_tokens,
-            "total_tokens": self.total_tokens,
+            "prompt_tokens": self.prompt_tokens_total,
+            "assistant_tokens": self.assistant_tokens_total,
+            "total_tokens": self.tokens_total_all,
         }
         return summary_dict
 
