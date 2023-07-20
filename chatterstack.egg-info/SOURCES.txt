@@ -1,9 +1,0 @@
-README.md
-setup.py
-chatterstack/__init__.py
-chatterstack/chatterstack.py
-chatterstack.egg-info/PKG-INFO
-chatterstack.egg-info/SOURCES.txt
-chatterstack.egg-info/dependency_links.txt
-chatterstack.egg-info/requires.txt
-chatterstack.egg-info/top_level.txt
