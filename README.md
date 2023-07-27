@@ -350,8 +350,14 @@ USER: [save]
 
 USER: [quit]
 ```
+By default you issue commands by using `[` and `]` as delimiters. But you can change these to whatever you want:
 
-you can also self-call any method of the chatterstack class itself, right from the chat interface:
+```
+convo.open_command = "{{"
+convo.close_command = "}}"
+```
+
+you can also self-call any method (or set any attribute) of the chatterstack class itself, right from the chat interface:
 ```
 # if you want to see what is currently in the conversation history
 USER: [print_formatted_conversation]
