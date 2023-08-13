@@ -23,12 +23,11 @@ convo = chatterstack.Chatterstack()
 convo = chatterstack.ChatterstackAdvanced()
 ```
 
+---
 
-# Overview: Chatterstack Base Class
+# 🤔 The  Problem
 
-## 🤔 The  Problem
-
-The ChatGPT APIs use a "conversation" variables to keep track of your interactions with the bot. This is a list of dictionaries, with each dictionary representing a message.
+The ChatGPT APIs use a "conversation" variables to keep track of your interactions with the bot. This is a list of dictionaries, with each dictionary representing a turn in the conversation.
 
 This leaves your program being littered with things like this:
 
@@ -39,19 +38,19 @@ conversation.append({'role': response.choices[0].message.role, 'content': respon
 # to print the last message 
 print(conversation[-1]["content"])
 ```
-If you want to do anything more advanced like "keep conversation variable to 8 messages max", or "make the System message always be the most recent message in the conversation"... well, I'll spare you the code snippet for those.
+Ridiculous.
 
-### But,
-Since this conversation variable is just made short, structured and highly predictable dictionaries...
+If you want to do anything more advanced, like "keep conversation variable to 8 messages max", or "make the System message always be the most recent message in the conversation"... well, I'll spare you the code snippet for those.
+
+### But...
+Since many aspects of these dictionaries are higly predictable, and we are most often doing just a handful of basic tasks with them...
 <!-- - a list that only ever contains dictionaries
 - and each dictionary alway contains just the same two keys
 - and the first key can only ever be one of three values -->
 
-...this means we can actually abstract away a lot of this mess in a way that is much more intuitive to use - while also keeping basically all of the inherent flexibility! That is a rare thing to be able to do.
+...this means we can actually abstract away a lot of this mess, in a way that makes it much more intuitive to use - while also keeping basically all of the inherent flexibility! That is a rare thing to be able to do.
 
-
-### look:
-
+# Straightforward Solution: The Chatterstack Base Class
 
 This is a fully functional chatbot program using chatterstack:
 
@@ -59,7 +58,7 @@ This is a fully functional chatbot program using chatterstack:
 import chatterstack
 import os
 
-os.environ['OPENAI_API_KEY'] = 'YOUR_API_KEY_HERE'
+os.environ['OPENAI_API_KEY'] = 'your_api_key_here'
 
 convo = chatterstack.Chatterstack()
 
@@ -72,7 +71,7 @@ while True:
 ```
 That's the whole thing!
 
-Here's what that conversation looks like:
+This is what that conversation would look like in the terminal:
 
 ```txt
 USER: hey, can you help me with something?
@@ -81,21 +80,22 @@ ASSISTANT: Sure! What would you like help with?
 
 USER: I need to know if France has a President or a Prime Minister
 
-ASSISTANT: France has both a President and a Prime Minister, [... bot goes on]
+ASSISTANT: France has both a President and a Prime Minister, which [... bot goes on]
 ```
 
-## But still flexible
-This library is built to be *intuitive and flexible*, so you can easily change the behavior or look, in many ways, whatever suits your needs. Here's some basic examples:
+## Keeping Flexibility
+This library is built to be *intuitive and flexible*, so you can easily change the behavior or look, in many ways, whatever suits your needs. Here's some basic examples, staying in the terminal for now:
 
 ```py
 
 while True:
+    # Change the user's display name
     convo.user_input(prefix="ME: ")
     
     # change any of the API arguments
     convo.send_to_bot(model="gpt-4", temperature=1, max_tokens=40)
 
-    # change the line spacing
+    # change the line spacing of the convo
     convo.print_last_message(prefix="GPT: ", lines_before=0, lines_after=2)
 
     # and let's have it print the total tokens after each turn
@@ -121,9 +121,7 @@ There is more info about the current defaults and various methods to change them
 
 <!-- # 👨‍💻 Chatterstack Base Library -->
 ## 📨 Getting Input 
-Let's look at the fundamentals first. **Even if you plan to use the Advanced Library, I highly recommend you read the whole README in order, starting here.**
-
-The `user_input()` method is the same as the python `input()` method, except it also automatically appends the user input in a correctly-formatted dict to your conversation
+The `user_input()` method is the same as the python `input()` method, except it also automatically appends the user's input as a correctly-formatted dict to your conversation variable.
 
 ```py
 convo.user_input()
@@ -137,33 +135,28 @@ Ask the bot:
 ```
 
 ## 📨 Adding Messages
-Maybe you aren't collecting your input from the terminal.
+Maybe you aren't using the terminal.
 
-Or maybe you want alter the input before appending it.
+Or maybe you want alter the input somehow before appending it.
 
-There are several ways to take string variables and add them to the conversation as a correctly formatted dict:
+There are several ways to take any string variable and add them to the conversation as a correctly formatted dict:
 ```py
-# A string you did some formatting on
-formatted_message = "I want this all to be in LOWER case".lower()
-
 # Use the .add() method. Pass it the role, then the content
-convo.add("user", formatted_message)
-```
-```py
-# or use the role-specific methods & just pass the content
+convo.add("user", message_string)
 
-convo.add_user(formatted_message)
+# or, use the role-specific methods & just pass the content
+convo.add_user(message_string)
 convo.add_assistant("I'm a manually added assistant response")
 convo.add_system("SYSTEM INSTRUCTIONS - you are a helpful assistant who responds only in JSON")
 ```
 
-There is also .insert() if you want to add a message at a specific index, instead of the end of the conversation:
+There is also .insert() if you want to add a message at a specific index, instead of appending it to the end of the conversation:
 
 ```py
 # Here's the format
 convo.insert(index, role, content)
 
-# And an example
+# example
 convo.insert(4, "system", "IMPORTANT: Remember to not apologize to the user so much")
 ```
 
@@ -175,7 +168,7 @@ convo.send_to_bot()
 ```
 That's it!
 
-It will take care of passing all the default values for you, as well as appending the response to your conversation. It also keeps token counts for you (and in the advanced class, much more)
+It will take care of passing all the default values for you, as well as appending the response to your conversation. It also keeps token counts for you (and in the advanced class, much more).
 
 ### Changing the defaults for the send_to_bot() method:
 By default, chatterstack uses these values:
@@ -189,7 +182,7 @@ presence_penalty=0,
 max_tokens=200
 ```
 
-There are several ways to change these, depending on what is convenient to you.
+There are several ways to change these. Choose what is most convenient to you.
 
 The most obvious way is just to pass them as arguments when you make the call. For instance, if you wanted GPT-4 and 800 max tokens:
 
@@ -198,7 +191,7 @@ convo.send_to_bot(model="gpt-4", max_tokens=800)
 ```
 This approach is great when you want to make just one call with some different values.
 
-But if you know you want different values all the time, you can define them in caps at the top of your file, and initialize chatterstack using the `globals()` dict, like this:
+But if you know you want different values for the whole conversation, you can define them in caps at the top of your file, and initialize chatterstack using the `globals()` dict, like this:
 
 ```py
 MODEL = "gpt-4"
@@ -213,7 +206,7 @@ convo = chatterstack.Chatterstack(user_defaults=globals())
 convo.send_to_bot()
 ```
 
-Finally, if you want to just use the boilerplate OpenAI call, you can still do that! Just pass it the .list attribute of your Chatterstack:
+Finally, if you want to just use the boilerplate OpenAI call, you can still do that! Just pass it the .list attribute of your Chatterstack, which is the raw list of dictionaries:
 
 ```py
 response = openai.ChatCompletion.create(
@@ -236,7 +229,7 @@ convo.print_last_message()
 ```
 Or, if you wanted to do formatting on the string first...
 ```py
-# This represents/is the content of the last message
+# This represents/is the content string of the last message
 convo.last_message  
 
 # So you can do stuff like this:
@@ -280,7 +273,7 @@ convo.remove_from_start(count)
 
 But much more importantly - methods for fine-grained control over the system message.
 
-System messages are usually used for instructions, and often it can be helpful to have the instructions appear more "recently" in the conversation. Which means tracking and moving this message, with out disrupting the others.
+System messages are usually used for instructions, and often it can be helpful to have the instructions appear more "recently" in the conversation. Which means tracking and moving this message, without disrupting the others.
 ```py
 # move your system message to be the most recent message in convo
 convo.move_system_to_end()
@@ -321,9 +314,12 @@ SUMMARY:
 ```
 
 # Advanced Library
-Chatterstack has much more functionality built-in, and is easily extensible.
+The Chatterstack Advanced class extends the base class, and has much more functionality built-in. It is also easily extensible.
 
 ## Reminders
+
+>**Warning**:
+> Recent changes to the model seem to have broken this functionality. It may or may not work when you try it. It will likely have to be re-written to use function-calling to work consistently again
 
 You can now tell the bot "remind me to take the take the garbage out at 8pm", or "remind me to take the garbage out in an hour"
 
@@ -421,4 +417,4 @@ class ChatterstackAdvanced(Chatterstack):
 ---
 
 ## Javascript 
-There is currently a Javascript version of Chatterstack, butt I have not made it available yet because I don't know Javascript as well, and am not so confident in it's dependability. If you do know Javascript and would like to help, please let me know!
+There is currently a Javascript version of Chatterstack, butt I have not made it available yet because I don't know Javascript as well, and am not so confident in its dependability. If you do know Javascript, and would like to help, please let me know!
